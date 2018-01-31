@@ -6,15 +6,16 @@ import argparse
 import configparser
 import os
 import sys
-import IPython
-import elasticsearch_dsl
+import time
 from datetime import datetime
-from elasticsearch_dsl import DocType, Date, Integer, Keyword, Text, connections
+import IPython
+from elasticsearch import Elasticsearch
 from twarc import Twarc
 
 config = configparser.ConfigParser()
 config.read('/home/svjethoe/.twarc')
 index = 'visualanalytics'
+es = Elasticsearch()
 
 t = Twarc(config.get('main', 'consumer_key'),
         config.get('main', 'consumer_secret'),
@@ -22,23 +23,46 @@ t = Twarc(config.get('main', 'consumer_key'),
         config.get('main', 'access_token_secret'))
 
 
-class Tweet(DocType):
-    title = Text(analyzer='snowball', fields={'raw': Keyword()})
-    body = Text(analyzer='snowball')
-    tags = Keyword()
-    published_from = Date()
-    lines = Integer()
+def create_index(index):
+    settings = {
+        'settings': {
+            'number_of_shards': 1,
+            'number_of_replicas': 0
+        },
+        'mappings': {
+            'tweet': {
+                'properties': {
+                    'country': {'type': 'text'},
+                    'date': {'type': 'date'},
+                    'text': {'type': 'text'},
+                    'url': {'type': 'text'}
+                }
+            }
+        }
+    }
+    es.indices.create(index, settings)
 
-    class Meta:
-        index = index
-        id =
 
-    def save(self, ** kwargs):
-        self.lines = len(self.body.split())
-        return super(Tweet, self).save(** kwargs)
+def post(tweet):
+    try:
+        url = tweet['entities']['urls'][0]['url']
+    except:
+        url = None
+    ts = time.strftime('%Y-%m-%d %H:%M:%S', time.strptime(tweet['created_at'], '%a %b %d %H:%M:%S +0000 %Y'))
+    doc = {
+        'url': url,
+        'date': ts,
+        'country': tweet['user']['location'],
+        'hashtags': [x['text'] for x in tweet['entities']['hashtags']],
+        'text': tweet['full_text'] or tweet['extended_tweet']['full_text']}
 
-    def is_published(self):
-        return datetime.now() > self.published_from
+    res = es.index(
+        index=index,
+        doc_type='tweet',
+        id=tweet['id'],
+        body=doc)
+
+    return res
 
 
 def dump(tweet):
@@ -48,7 +72,10 @@ def dump(tweet):
     print(tweet['user']['location'])
     hashtags = [x['text'] for x in tweet['entities']['hashtags']]
     print(hashtags)
-    print(tweet['entities']['urls'][0]['url'])
+    try:
+        print(tweet['entities']['urls'][0]['url'])
+    except:
+        pass
     print(tweet['full_text'] or tweet['extended_tweet']['full_text'])
 
 
@@ -56,9 +83,12 @@ def main():
     # for tweet in t.search("ferguson"):
     # print(tweet["full_text"])
 
+    IPython.embed()
+    sys.exit()
+
     tweets = t.search("#bitcoin")
     i = next(tweets)
-    dump(i)
+    post(i)
 
     IPython.embed()
     sys.exit()
