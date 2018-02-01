@@ -8,9 +8,11 @@ import os
 import sys
 import time
 from datetime import datetime
+from time import mktime
 import IPython
 from elasticsearch import Elasticsearch
 from twarc import Twarc
+
 
 config = configparser.ConfigParser()
 config.read('/home/svjethoe/.twarc')
@@ -33,14 +35,16 @@ def create_index(index):
             'tweet': {
                 'properties': {
                     'country': {'type': 'text'},
-                    'date': {'type': 'date'},
+                    'timestamp': {
+                        'type': 'date'},
                     'text': {'type': 'text'},
                     'url': {'type': 'text'}
                 }
             }
         }
     }
-    es.indices.create(index, settings)
+    if not es.indices.exists(index):
+        es.indices.create(index, settings)
 
 
 def post(tweet):
@@ -48,16 +52,17 @@ def post(tweet):
         url = tweet['entities']['urls'][0]['url']
     except:
         url = None
-    ts = time.strftime('%Y-%m-%d %H:%M:%S', time.strptime(tweet['created_at'], '%a %b %d %H:%M:%S +0000 %Y'))
+    ts = time.strftime('%Y-%m-%dT%H:%M:%S', time.strptime(tweet['created_at'], '%a %b %d %H:%M:%S +0000 %Y'))
     doc = {
         'url': url,
-        'date': ts,
+        'timestamp': ts,
         'country': tweet['user']['location'],
         'hashtags': [x['text'] for x in tweet['entities']['hashtags']],
         'text': tweet['full_text'] or tweet['extended_tweet']['full_text']}
 
     res = es.index(
         index=index,
+        _timestamp=ts,
         doc_type='tweet',
         id=tweet['id'],
         body=doc)
@@ -83,13 +88,10 @@ def main():
     # for tweet in t.search("ferguson"):
     # print(tweet["full_text"])
 
-    IPython.embed()
-    sys.exit()
-
+    create_index(index)
     tweets = t.search("#bitcoin")
     i = next(tweets)
     post(i)
-
     IPython.embed()
     sys.exit()
 
