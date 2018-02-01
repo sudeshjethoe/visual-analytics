@@ -57,12 +57,11 @@ def post(tweet):
         'url': url,
         'timestamp': ts,
         'country': tweet['user']['location'],
-        'hashtags': [x['text'] for x in tweet['entities']['hashtags']],
+        'hashtags': [x['text'].lower() for x in tweet['entities']['hashtags']],
         'text': tweet['full_text'] or tweet['extended_tweet']['full_text']}
 
     res = es.index(
         index=index,
-        _timestamp=ts,
         doc_type='tweet',
         id=tweet['id'],
         body=doc)
@@ -70,30 +69,16 @@ def post(tweet):
     return res
 
 
-def dump(tweet):
-    ''' dump a tweet '''
-    print(tweet['created_at'])
-    print(tweet['id'])
-    print(tweet['user']['location'])
-    hashtags = [x['text'] for x in tweet['entities']['hashtags']]
-    print(hashtags)
-    try:
-        print(tweet['entities']['urls'][0]['url'])
-    except:
-        pass
-    print(tweet['full_text'] or tweet['extended_tweet']['full_text'])
-
-
 def main():
     # for tweet in t.search("ferguson"):
     # print(tweet["full_text"])
 
-    create_index(index)
-    tweets = t.search("#bitcoin")
-    i = next(tweets)
-    post(i)
     IPython.embed()
     sys.exit()
+    create_index(index)
+    tweets = t.search("#bitcoin")
+    for i in tweets:
+        post(i)
 
 
 if __name__ == "__main__":
