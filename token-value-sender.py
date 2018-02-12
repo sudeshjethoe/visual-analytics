@@ -1,10 +1,26 @@
+#!/usr/bin/env python3
+"""
+    Dump coins in elasticsearch
+"""
+import argparse
 import json
 import time
 import dateparser
 import pytz
+import IPython
 
 from datetime import datetime
 from binance.client import Client
+from elasticsearch import Elasticsearch
+
+index = 'visualanalytics'
+es = Elasticsearch()
+
+
+def readsymbols(f='symbols'):
+    with open(f, 'r') as fh:
+        symbols = fh.read().split('\n')
+    return symbols[:-1]
 
 
 def date_to_milliseconds(date_str):
@@ -136,21 +152,19 @@ def get_historical_klines(symbol, interval, start_str, end_str=None):
     return output_data
 
 
-symbol = "ETHBTC"
-start = "1 Dec, 2017"
-end = "1 Jan, 2018"
-interval = Client.KLINE_INTERVAL_30MINUTE
+def get_klines(symbol='ETHBTC', start='24 hours ago', end='now'):
+    interval = Client.KLINE_INTERVAL_30MINUTE
+    klines = get_historical_klines(symbol, interval, start, end)
+    return klines
 
-klines = get_historical_klines(symbol, interval, start, end)
 
-# open a file with filename including symbol, interval and start and end converted to milliseconds
-with open(
-    "Binance_{}_{}_{}-{}.json".format(
-        symbol,
-        interval,
-        date_to_milliseconds(start),
-        date_to_milliseconds(end)
-    ),
-    'w'  # set file write mode
-) as f:
-    f.write(json.dumps(klines))
+def main():
+    symbols = readsymbols()
+    print(symbols[0])
+    IPython.embed()
+
+
+if __name__ == "__main__":
+    main()
+
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4 fdm=indent nocompatible
