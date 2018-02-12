@@ -4,6 +4,7 @@
 """
 import argparse
 import configparser
+import csv
 import os
 import sys
 import time
@@ -23,6 +24,15 @@ t = Twarc(config.get('main', 'consumer_key'),
         config.get('main', 'consumer_secret'),
         config.get('main', 'access_token'),
         config.get('main', 'access_token_secret'))
+
+
+def readtokens(f='binance-subset.csv'):
+    records = []
+    with open(f, 'r') as csvfile:
+        for row in csv.reader(csvfile):
+            records.append("#%s" % row[1])
+
+    return records
 
 
 def create_index(index):
@@ -70,15 +80,17 @@ def post(tweet):
 
 
 def main():
-    # for tweet in t.search("ferguson"):
-    # print(tweet["full_text"])
-
-    IPython.embed()
-    sys.exit()
+    tokens = readtokens()
     create_index(index)
-    tweets = t.search("#bitcoin")
-    for i in tweets:
-        post(i)
+    # tweets = t.search("#bitcoin")
+    searchtokens = " OR ".join(tokens)
+    since = "2018-02-11"
+    until = "2018-02-12"
+    # for tweet in t.search("#btc OR #eth since:2018-01-01 until:2018-01-28"):
+    for tweet in t.search("%s since:%s until:%s" % (searchtokens, since, until)):
+        post(tweet)
+        # IPython.embed()
+        # sys.exit()
 
 
 if __name__ == "__main__":

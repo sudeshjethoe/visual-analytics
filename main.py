@@ -4,16 +4,17 @@
 """
 import ConfigParser
 import argparse
-import sys
+import json
 import os
 import socket
-import json
+import sys
 import IPython
 
 from prometheus_client import start_http_server
 
 debug = False
 verbose = False
+
 
 def tr_env(e):
     """translate e to an environment or return e"""
@@ -39,7 +40,7 @@ def parse_release(payload):
     payload format:
     '{"application":"gChannelsAppSV","version":"2.4.83","environment":"TST","result":"FAILED","user":"sd59bg","apptype":"TCS","repository":"artifactory","timestamp":"2016-09-12T12:47:44Z","previous-version":"2.4.83"}'
     """
-    previous  = payload['previous-version'] if payload.has_key('previous-version') else 'no_previous'
+    previous = payload['previous-version'] if 'previous-version' in payload else 'no_previous'
     message = "Upgrade on host %s from %s to %s was: %s" % (
         payload['host'],
         previous,
@@ -76,11 +77,10 @@ def parse_deployment(payload):
     message = "Upgrade on host %s to %s was: %s" % (
         payload['host'],
         payload['version'],
-        payload['result']
-        )
+        payload['result'])
 
-    jvm_inst = payload['JVMInstanceNr'] if payload.has_key('JVMInstanceNr') else 'noJVM'
-    apptype  = payload['apptype'] if payload.has_key('apptype') else 'no_type'
+    jvm_inst = payload['JVMInstanceNr'] if 'JVMInstanceNr' in payload else 'noJVM'
+    apptype = payload['apptype'] if 'apptype' in payload else 'no_type'
     payload.update({
         'tags': [
             apptype,
@@ -119,11 +119,6 @@ def main():
 
     # start prometheus metric exporter on specified port for this topic
     start_http_server(8001)
-
-    # create redis conn
-    redis_host = config.get('redis', 'host')
-    redis_key = config.get('redis', 'key')
-    redis_conn = redis.StrictRedis(host=redis_host)
 
     for n, message in enumerate(consumer, start=1):
         payload = json.loads(message.value)
