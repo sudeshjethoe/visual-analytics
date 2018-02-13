@@ -155,7 +155,7 @@ def get_historical_klines(symbol, interval, start_str, end_str=None):
 
 
 def get_klines(symbol='ETHBTC', start='24 hours ago', end='now'):
-    interval = Client.KLINE_INTERVAL_30MINUTE
+    interval = Client.KLINE_INTERVAL_1MINUTE
     klines = get_historical_klines(symbol, interval, start, end)
     return klines
 
@@ -221,8 +221,9 @@ def process_symbol(symbol):
 
 def main():
     symbols = readsymbols()
-    print(symbols[0])
+    print("total symbol count: %s" % len(symbols))
     for symbol in symbols:
+        print("%s\t%s" % (symbols.index(symbol), symbol))
         process_symbol(symbol)
 
 

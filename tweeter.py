@@ -85,10 +85,16 @@ def main():
     create_index(index)
     # tweets = t.search("#bitcoin")
     searchtokens = " OR ".join(tokens)
-    since = "2018-02-11"
-    until = "2018-02-12"
+    since = "2018-02-13"
+    until = "2018-02-14"
+    if since and until:
+        timerange = "since:%s until:%s" % (since, until)
+    elif since:
+        timerange = "since:%s" % since
+    else:
+        timerange = "since:%s" % time.strftime("%Y-%m-%d")
     # for tweet in t.search("#btc OR #eth since:2018-01-01 until:2018-01-28"):
-    for tweet in t.search("%s since:%s until:%s" % (searchtokens, since, until)):
+    for tweet in t.search("%s %s" % (searchtokens, timerange)):
         post(tweet)
         # IPython.embed()
         # sys.exit()
