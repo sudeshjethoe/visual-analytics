@@ -66,8 +66,9 @@ def post(tweet):
     doc = {
         'url': url,
         'timestamp': ts,
+        'type': 'tweet',
         'country': tweet['user']['location'],
-        'hashtags': [x['text'].lower() for x in tweet['entities']['hashtags']],
+        'tags': [x['text'].lower() for x in tweet['entities']['hashtags']],
         'text': tweet['full_text'] or tweet['extended_tweet']['full_text']}
 
     res = es.index(

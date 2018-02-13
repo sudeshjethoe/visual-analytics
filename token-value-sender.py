@@ -4,7 +4,9 @@
 """
 import argparse
 import json
+import hashlib
 import time
+import sys
 import dateparser
 import pytz
 import IPython
@@ -15,6 +17,9 @@ from elasticsearch import Elasticsearch
 
 index = 'visualanalytics'
 es = Elasticsearch()
+
+# create the Binance client, no need for api key
+client = Client("", "")
 
 
 def readsymbols(f='symbols'):
@@ -82,7 +87,7 @@ def get_historical_klines(symbol, interval, start_str, end_str=None):
 
     :param symbol: Name of symbol pair e.g BNBBTC
     :type symbol: str
-    :param interval: Biannce Kline interval
+    :param interval: Binance Kline interval
     :type interval: str
     :param start_str: Start date string in UTC format
     :type start_str: str
@@ -92,9 +97,6 @@ def get_historical_klines(symbol, interval, start_str, end_str=None):
     :return: list of OHLCV values
 
     """
-    # create the Binance client, no need for api key
-    client = Client("", "")
-
     # init our list
     output_data = []
 
@@ -158,10 +160,70 @@ def get_klines(symbol='ETHBTC', start='24 hours ago', end='now'):
     return klines
 
 
+def parse_kline(kline):
+    keys = [
+        'open_time',
+        'open',
+        'high',
+        'low',
+        'close',
+        'volume',
+        'close_time',
+        'quote_asset_volume',
+        'number_of_trades',
+        'taker_buy_base_asset_volume',
+        'taker_buy_quote_asset_volume',
+        'ignore']
+    return dict(zip((keys), kline))
+
+
+def post(symbol, kline):
+    '''process a single record and send to elasticsearch
+    kline:
+    {'close': '0.00013915',
+     'close_time': 1518434999999,
+     'high': '0.00013997',
+     'ignore': '0',
+     'low': '0.00013801',
+     'number_of_trades': 218,
+     'open': '0.00013869',
+     'open_time': 1518433200000,
+     'quote_asset_volume': '4.30812629',
+     'taker_buy_base_asset_volume': '20036.00000000',
+     'taker_buy_quote_asset_volume': '2.78273283',
+     'volume': '31037.00000000'}
+    '''
+    coin = symbol[:3].lower()
+    value = (float(kline['close']) + float(kline['open'])) / 2
+    utc_time = time.gmtime(kline['open_time'] / 1000)
+    ts = time.strftime('%Y-%m-%dT%H:%M:%S', utc_time)
+    doc = {
+        'tags': [coin, symbol],
+        'type': 'tokenvalue',
+        'value': value,
+        'timestamp': ts}
+
+    hashstr = "{0}{1}{2}".format(coin, ts, value).encode('utf-8')
+    res = es.index(
+        index=index,
+        doc_type='tweet',
+        id=hashlib.md5(hashstr).hexdigest(),
+        body=doc)
+
+    return res
+
+
+def process_symbol(symbol):
+    klines = get_klines(symbol)
+    mapped_klines = [parse_kline(k) for k in klines]
+    [post(symbol, kline) for kline in mapped_klines]
+
+
 def main():
     symbols = readsymbols()
     print(symbols[0])
-    IPython.embed()
+    for symbol in symbols:
+        process_symbol(symbol)
 
 
 if __name__ == "__main__":
